@@ -2,6 +2,7 @@
 
 namespace Restruct\PhoneNumberField;
 
+use Restruct\PhoneNumberField\Compat\PhoneNumberFieldValidation;
 use SilverStripe\Forms\TextField;
 
 /**
@@ -17,6 +18,9 @@ use SilverStripe\Forms\TextField;
  */
 class PhoneNumberField extends TextField
 {
+    # validate() differs per Silverstripe major (SS6 returns a ValidationResult); see the trait.
+    use PhoneNumberFieldValidation;
+
     # null means "use PhoneNumberRules config"; see the setters.
     protected ?string $defaultRegion = null;
     protected ?array $allowedRegions = null;
@@ -129,30 +133,21 @@ class PhoneNumberField extends TextField
     }
 
     /**
-     * @param \SilverStripe\Forms\Validator $validator
-     * @return bool
+     * The error message for the current value, or null when it passes. Shared by the per-major
+     * validate() in PhoneNumberFieldValidation, which only differs in how it reports the error.
      */
-    public function validate($validator)
+    protected function phoneNumberError(): ?string
     {
-        # TextField's own check (maxLength) first; it reports its own error.
-        $valid = parent::validate($validator);
-
         # Empty stays with RequiredFields, same as every other field type.
         if (is_string($this->value) && trim($this->value) === '' || $this->value === null) {
-            return $valid;
+            return null;
         }
 
         $check = $this->check();
         if (!$check->valid) {
-            $validator->validationError(
-                $this->name,
-                PhoneNumberMessages::forCheck($check, $this->allowedTypes),
-                'validation'
-            );
-
-            return false;
+            return PhoneNumberMessages::forCheck($check, $this->allowedTypes);
         }
 
-        return $valid;
+        return null;
     }
 }

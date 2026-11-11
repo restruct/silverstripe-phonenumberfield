@@ -2,7 +2,8 @@
 
 namespace Restruct\PhoneNumberField;
 
-use SilverStripe\Forms\Validator;
+# The framework Validator under its SS4/SS5 or its SS6 name; see that file.
+use Restruct\PhoneNumberField\Compat\BaseValidator;
 
 /**
  * Applies the PhoneNumberRules to named fields of ANY form, without replacing the fields.
@@ -14,8 +15,10 @@ use SilverStripe\Forms\Validator;
  *       PhoneNumberValidator::create(['Mobile']),
  *   ]));
  *
- * or on a form that already has a CompositeValidator (setValidator() again, because
- * CompositeValidator::addValidator() does not hand the form to the added validator):
+ * (on Silverstripe 6 those two are SilverStripe\Forms\Validation\CompositeValidator and
+ * RequiredFieldsValidator), or on a form that already has a CompositeValidator (setValidator()
+ * again, because CompositeValidator::addValidator() does not hand the form to the added
+ * validator):
  *
  *   $form->setValidator($form->getValidator()->addValidator(PhoneNumberValidator::create(['Mobile'])));
  *
@@ -23,7 +26,7 @@ use SilverStripe\Forms\Validator;
  * the submitted value: normalisation to E.164 needs PhoneNumberField, or a call to
  * PhoneNumberRules::normalise() where the data is saved.
  */
-class PhoneNumberValidator extends Validator
+class PhoneNumberValidator extends BaseValidator
 {
     /** @var string[] */
     protected array $fieldNames = [];
