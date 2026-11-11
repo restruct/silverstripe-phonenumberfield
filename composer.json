@@ -22,11 +22,11 @@
     ],
     "require": {
         "php": "^8.1",
-        "silverstripe/framework": "^4.13 || ^5",
-        "giggsey/libphonenumber-for-php": "^8.13"
+        "silverstripe/framework": "^4.13 || ^5 || ^6",
+        "giggsey/libphonenumber-for-php": "^8.13 || ^9"
     },
     "require-dev": {
-        "silverstripe/recipe-testing": "^2 || ^3"
+        "silverstripe/recipe-testing": "^2 || ^3 || ^4"
     },
     "autoload": {
         "psr-4": {

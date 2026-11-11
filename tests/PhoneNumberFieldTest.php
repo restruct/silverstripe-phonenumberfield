@@ -5,12 +5,12 @@ namespace Restruct\PhoneNumberField\Tests;
 use Restruct\PhoneNumberField\PhoneNumberField;
 use Restruct\PhoneNumberField\PhoneNumberRules;
 use Restruct\PhoneNumberField\Tests\Stub\FieldSink;
+use Restruct\PhoneNumberField\Tests\Stub\FormCompat;
 use SilverStripe\Core\Config\Config;
 use SilverStripe\Dev\SapphireTest;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\Form;
 use SilverStripe\Forms\FormAction;
-use SilverStripe\Forms\RequiredFields;
 
 /**
  * The field inside a real Form: validation outcome, error message, and what saveInto() gets.
@@ -25,14 +25,14 @@ class PhoneNumberFieldTest extends SapphireTest
         Config::modify()->set(PhoneNumberRules::class, 'allowed_types', ['MOBILE', 'FIXED_LINE_OR_MOBILE']);
     }
 
-    protected function makeForm(PhoneNumberField $field, ?RequiredFields $required = null): Form
+    protected function makeForm(PhoneNumberField $field, $required = null): Form
     {
         $form = new Form(
             null,
             'TestForm',
             FieldList::create($field),
             FieldList::create(FormAction::create('submit', 'Submit')),
-            $required ?: RequiredFields::create()
+            $required ?: FormCompat::required()
         );
         $form->disableSecurityToken();
 
@@ -44,7 +44,7 @@ class PhoneNumberFieldTest extends SapphireTest
      */
     protected function validate(Form $form)
     {
-        return $form->validationResult();
+        return FormCompat::run($form);
     }
 
     public function testRendersAsTelInput(): void
@@ -61,7 +61,7 @@ class PhoneNumberFieldTest extends SapphireTest
         $result = $this->validate($this->makeForm($field));
 
         $this->assertTrue($result->isValid());
-        $this->assertSame('06-12345678', $field->Value(), 'the user keeps seeing what they typed');
+        $this->assertSame('06-12345678', FormCompat::value($field), 'the user keeps seeing what they typed');
         $this->assertSame('+31612345678', $field->dataValue(), 'the saved value is normalised');
     }
 
@@ -122,7 +122,7 @@ class PhoneNumberFieldTest extends SapphireTest
         $this->assertTrue($this->validate($this->makeForm($field))->isValid());
 
         $field = PhoneNumberField::create('Mobile', 'Mobile')->setValue('');
-        $result = $this->validate($this->makeForm($field, RequiredFields::create('Mobile')));
+        $result = $this->validate($this->makeForm($field, FormCompat::required('Mobile')));
         $this->assertFalse($result->isValid(), 'required-ness stays with RequiredFields');
         $this->assertSame('Mobile', $result->getMessages()[0]['fieldName']);
     }
@@ -146,7 +146,13 @@ class PhoneNumberFieldTest extends SapphireTest
         $field = PhoneNumberField::create('Mobile', 'Mobile', '+31612345678', 5);
         $result = $this->validate($this->makeForm($field));
         $this->assertFalse($result->isValid());
-        $this->assertStringContainsString('must not exceed', $result->getMessages()[0]['message']);
+        $this->assertSame('Mobile', $result->getMessages()[0]['fieldName']);
+        # The framework's own wording, which SS6 changed: SS4/SS5 TextField says "must not
+        # exceed", SS6's StringFieldValidator says "Cannot have more than".
+        $this->assertMatchesRegularExpression(
+            '/must not exceed|Cannot have more than/',
+            $result->getMessages()[0]['message']
+        );
     }
 
     public function testSaveIntoWritesTheNormalisedValue(): void
@@ -157,5 +163,61 @@ class PhoneNumberFieldTest extends SapphireTest
         $sink = new FieldSink();
         $field->saveInto($sink);
         $this->assertSame('+31612345678', $sink->Mobile);
+    }
+
+    /**
+     * Silverstripe 6: validate() takes no Validator and returns the field's own result, which
+     * Form::validate() combines. Called directly here so the SS6 entry point is pinned on its
+     * own, not only through a form.
+     */
+    public function testValidateReturnsAResultWithTheFieldErrorOnSs6(): void
+    {
+        if (!class_exists('SilverStripe\\Forms\\Validation\\Validator')) {
+            $this->markTestSkipped('Silverstripe 4/5: validate() reports to a Validator');
+        }
+        $field = PhoneNumberField::create('Mobile', 'Mobile')->setValue('020 123 4567');
+        $result = $field->validate();
+
+        $this->assertInstanceOf('SilverStripe\\Core\\Validation\\ValidationResult', $result);
+        $this->assertFalse($result->isValid());
+        $this->assertSame('Mobile', $result->getMessages()[0]['fieldName']);
+        $this->assertSame('Please enter a mobile phone number', $result->getMessages()[0]['message']);
+
+        $this->assertTrue(PhoneNumberField::create('Mobile', 'Mobile')->setValue('0612345678')->validate()->isValid());
+        $this->assertTrue(PhoneNumberField::create('Mobile', 'Mobile')->setValue('')->validate()->isValid());
+    }
+
+    /**
+     * Silverstripe 4.13 and 5: validate($validator) reports on the Validator and returns a bool.
+     */
+    public function testValidateReportsToTheValidatorOnSs4AndSs5(): void
+    {
+        if (class_exists('SilverStripe\\Forms\\Validation\\Validator')) {
+            $this->markTestSkipped('Silverstripe 6: validate() returns a ValidationResult');
+        }
+        $validator = FormCompat::required();
+        $field = PhoneNumberField::create('Mobile', 'Mobile')->setValue('020 123 4567');
+
+        $this->assertFalse($field->validate($validator));
+        $messages = $validator->getResult()->getMessages();
+        $this->assertSame('Mobile', $messages[0]['fieldName']);
+        $this->assertSame('Please enter a mobile phone number', $messages[0]['message']);
+
+        $validator = FormCompat::required();
+        $this->assertTrue(PhoneNumberField::create('Mobile', 'Mobile')->setValue('0612345678')->validate($validator));
+        $this->assertTrue($validator->getResult()->isValid());
+    }
+
+    /**
+     * What the visitor sees is what they typed, on every major: SS6 renders the input from
+     * getFormattedValue(), SS4/SS5 from Value(); neither may show the E.164 form.
+     */
+    public function testRenderedInputShowsWhatWasTyped(): void
+    {
+        $field = PhoneNumberField::create('Mobile', 'Mobile')->setValue('06-12345678');
+        $this->makeForm($field);
+        $html = (string) $field->Field();
+        $this->assertStringContainsString('value="06-12345678"', $html);
+        $this->assertStringNotContainsString('+31612345678', $html);
     }
 }

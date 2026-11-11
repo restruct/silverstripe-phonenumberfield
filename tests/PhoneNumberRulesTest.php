@@ -155,4 +155,35 @@ class PhoneNumberRulesTest extends SapphireTest
         $this->assertNull(PhoneNumberRules::typeName(null));
         $this->assertNull(PhoneNumberRules::typeName(-99));
     }
+
+    /**
+     * libphonenumber 8.x has int constants, 9.x a backed enum. Types from YAML arrive as names
+     * or ints either way and must match what getNumberType() returns on the installed version.
+     */
+    public function testIntTypesFromConfigWorkOnEitherLibphonenumberMajor(): void
+    {
+        Config::modify()->set(PhoneNumberRules::class, 'allowed_types', [1]); # MOBILE
+        $this->assertTrue(PhoneNumberRules::check('0612345678')->valid);
+        $this->assertTrue(PhoneNumberRules::check('0201234567')->failed(PhoneNumberCheck::REASON_TYPE));
+
+        $this->assertSame([PhoneNumberType::MOBILE], PhoneNumberRules::normaliseTypes([1, 'MOBILE']));
+        $this->assertSame(PhoneNumberType::MOBILE, PhoneNumberRules::typeFromValue(1));
+        $this->assertSame('MOBILE', PhoneNumberRules::typeName(1));
+    }
+
+    /**
+     * On libphonenumber 9.x the type is the enum case itself, so the comparison a caller writes
+     * (=== PhoneNumberType::MOBILE) is the same as on 8.x, and an int that is no type is dropped.
+     */
+    public function testTypeIsTheEnumCaseOnLibphonenumber9(): void
+    {
+        if (!enum_exists(PhoneNumberType::class)) {
+            $this->markTestSkipped('libphonenumber 8.x: PhoneNumberType is int constants');
+        }
+        $check = PhoneNumberRules::check('0612345678');
+        $this->assertInstanceOf(PhoneNumberType::class, $check->type);
+        $this->assertSame(PhoneNumberType::MOBILE, $check->type);
+        $this->assertNull(PhoneNumberRules::typeFromValue(-99));
+        $this->assertSame([], PhoneNumberRules::normaliseTypes([-99]));
+    }
 }

@@ -41,22 +41,31 @@ check.
 
 ## Requirements
 
-- Silverstripe 4.13 or 5 (`silverstripe/framework ^4.13 || ^5`)
-- PHP 8.1 or newer
-- `giggsey/libphonenumber-for-php ^8.13` (installed with the module)
+- Silverstripe 4.13, 5 or 6 (`silverstripe/framework ^4.13 || ^5 || ^6`)
+- PHP 8.1 or newer (Silverstripe 6 itself needs 8.3)
+- `giggsey/libphonenumber-for-php ^8.13 || ^9` (installed with the module)
 
 `composer.json` is the source of truth for supported versions.
 
-| Branch | Module version | Silverstripe | PHP |
-|---|---|---|---|
-| `main` | 1.x | 4.13, 5 | 8.1+ |
+| Branch | Module version | Silverstripe | PHP | libphonenumber |
+|---|---|---|---|---|
+| `main` | 1.x | 4.13, 5, 6 | 8.1+ | 8.13+, 9 |
 
-Silverstripe 6 changed the form validation API; a 6-compatible line is not published yet.
+One release line covers all three Silverstripe majors. Silverstripe 6 changed the form
+validation API (`FormField::validate()` returns a `ValidationResult`, and the validators moved
+to `SilverStripe\Forms\Validation`); the module picks the right implementation at runtime, so
+nothing changes in how you use it.
+
+libphonenumber 9 turned `PhoneNumberType` into an enum. The module works with either: config
+accepts type names or int values on both, and `$check->type` is whatever the installed version
+uses, so compare it as `$check->type === PhoneNumberType::MOBILE`, which holds on 8 and 9.
+`$check->typeName` is the same string on both. The 8.x line has had no metadata release since
+February 2025, so prefer 9 where nothing else holds you on 8.
 
 ## Installation
 
 ```bash
-composer require restruct/silverstripe-phonenumberfield
+composer require restruct/silverstripe-phonenumberfield:^1.0
 ```
 
 ## Configuration
@@ -108,8 +117,8 @@ field class is not an option, the same rules can be added as a validator:
 
 ```php
 use Restruct\PhoneNumberField\PhoneNumberValidator;
-use SilverStripe\Forms\CompositeValidator;
-use SilverStripe\Forms\RequiredFields;
+use SilverStripe\Forms\CompositeValidator;   // SS6: SilverStripe\Forms\Validation\CompositeValidator
+use SilverStripe\Forms\RequiredFields;       // SS6: SilverStripe\Forms\Validation\RequiredFieldsValidator
 
 $form->setValidator(CompositeValidator::create([
     RequiredFields::create('Mobile'),
@@ -117,7 +126,8 @@ $form->setValidator(CompositeValidator::create([
 ]));
 
 // or, when the form already has a CompositeValidator (setValidator() again, because
-// CompositeValidator::addValidator() does not hand the form to the added validator):
+// CompositeValidator::addValidator() does not hand the form to the added validator, on
+// Silverstripe 4.13, 5 and 6 alike):
 $form->setValidator(
     $form->getValidator()->addValidator(PhoneNumberValidator::create(['Mobile', 'Phone']))
 );
@@ -171,7 +181,8 @@ From a host project that requires this module through a symlinked path repositor
 vendor/bin/phpunit vendor/restruct/silverstripe-phonenumberfield/tests
 ```
 
-CI runs the suite on Silverstripe 4.13 (PHP 8.1) and 5 (PHP 8.1 and 8.3).
+CI runs the suite on Silverstripe 4.13 (PHP 8.1), 5 (PHP 8.1 and 8.3) and 6 (PHP 8.3 and 8.4),
+with libphonenumber 8.x and 9.x each on Silverstripe 5 and 6.
 
 ## License
 

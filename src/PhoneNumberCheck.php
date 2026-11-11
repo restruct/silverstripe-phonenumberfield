@@ -2,6 +2,8 @@
 
 namespace Restruct\PhoneNumberField;
 
+use libphonenumber\PhoneNumberType;
+
 /**
  * The outcome of one phone number check: whether the number passed, why it failed, and the
  * normalised form plus what libphonenumber found out about it.
@@ -26,8 +28,11 @@ class PhoneNumberCheck
         public readonly ?string $e164 = null,
         # ISO 3166-1 alpha-2 region libphonenumber attributes the number to (NL, BE, GG ...).
         public readonly ?string $region = null,
-        # libphonenumber\PhoneNumberType constant value.
-        public readonly ?int $type = null,
+        # libphonenumber\PhoneNumberType: the int constant on libphonenumber 8.x, the enum case
+        # on 9.x. Compare with `=== PhoneNumberType::MOBILE`, which works on both; typeName
+        # below is the same string on both.
+        // public readonly ?int $type = null,
+        public readonly int|PhoneNumberType|null $type = null,
         # The constant's name (MOBILE, FIXED_LINE ...), handy in messages and logs.
         public readonly ?string $typeName = null,
     ) {

@@ -24,7 +24,10 @@ class FieldSink implements DataObjectInterface
     {
     }
 
-    public function __get($fieldName)
+    # `: mixed` because SS6's DataObjectInterface declares it; SS4/SS5 declare no return type,
+    # which a child may narrow, so the one signature fits every major. The parameter stays
+    # untyped for the same reason in reverse (SS4/SS5 leave it untyped, a child may not narrow it).
+    public function __get($fieldName): mixed
     {
         return $this->written[$fieldName] ?? null;
     }

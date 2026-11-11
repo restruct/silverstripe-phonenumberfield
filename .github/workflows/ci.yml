@@ -9,7 +9,7 @@ on:
 
 jobs:
   test:
-    name: SS${{ matrix.silverstripe }} / PHP ${{ matrix.php }}
+    name: SS${{ matrix.silverstripe }} / PHP ${{ matrix.php }} / libphonenumber ${{ matrix.libphonenumber }}
     runs-on: ubuntu-latest
 
     strategy:
@@ -19,18 +19,35 @@ jobs:
           # One job per supported Silverstripe major, at the oldest and newest PHP that major is
           # used with here. The module's composer.json is the source of truth for the supported
           # range; this matrix must follow it.
+          #
+          # libphonenumber is pinned per leg because the module supports both 8.x (int
+          # constants) and 9.x (PhoneNumberType is an enum), and an unpinned host always
+          # resolves 9.x. Each of SS5 and SS6 gets one leg on each.
           - silverstripe: '4'
             php: '8.1'
             framework: '^4.13'
             testing: '^2'
+            libphonenumber: '^8.13'
           - silverstripe: '5'
             php: '8.1'
             framework: '^5'
             testing: '^3'
+            libphonenumber: '^8.13'
           - silverstripe: '5'
             php: '8.3'
             framework: '^5'
             testing: '^3'
+            libphonenumber: '^9'
+          - silverstripe: '6'
+            php: '8.3'
+            framework: '^6'
+            testing: '^4'
+            libphonenumber: '^8.13'
+          - silverstripe: '6'
+            php: '8.4'
+            framework: '^6'
+            testing: '^4'
+            libphonenumber: '^9'
 
     services:
       database:
@@ -85,6 +102,7 @@ jobs:
             "require": {
               "silverstripe/framework": "${{ matrix.framework }}",
               "silverstripe/recipe-testing": "${{ matrix.testing }}",
+              "giggsey/libphonenumber-for-php": "${{ matrix.libphonenumber }}",
               "restruct/silverstripe-phonenumberfield": "*"
             },
             "repositories": [
