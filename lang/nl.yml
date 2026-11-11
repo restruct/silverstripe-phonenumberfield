@@ -1,0 +1,6 @@
+nl:
+  Restruct\PhoneNumberField\PhoneNumberField:
+    INVALID: 'Vul een geldig telefoonnummer in'
+    REGION_NOT_ALLOWED: 'Telefoonnummers uit dit land worden niet geaccepteerd'
+    MOBILE_REQUIRED: 'Vul een mobiel telefoonnummer in'
+    TYPE_NOT_ALLOWED: 'Dit type telefoonnummer wordt niet geaccepteerd'

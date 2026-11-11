@@ -1,0 +1,47 @@
+{
+    "name": "restruct/silverstripe-phonenumberfield",
+    "description": "Phone number validation for Silverstripe forms with libphonenumber: mobile-only, country allow-list and E.164 normalisation, as a form field or as a validator on any existing field",
+    "type": "silverstripe-vendormodule",
+    "keywords": [
+        "silverstripe",
+        "silverstripe-module",
+        "phone-number",
+        "libphonenumber",
+        "validation",
+        "form-field",
+        "sms",
+        "e164"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Restruct",
+            "email": "dev@restruct.nl",
+            "homepage": "https://restruct.nl"
+        }
+    ],
+    "require": {
+        "php": "^8.1",
+        "silverstripe/framework": "^4.13 || ^5",
+        "giggsey/libphonenumber-for-php": "^8.13"
+    },
+    "require-dev": {
+        "silverstripe/recipe-testing": "^2 || ^3"
+    },
+    "autoload": {
+        "psr-4": {
+            "Restruct\\PhoneNumberField\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Restruct\\PhoneNumberField\\Tests\\": "tests/"
+        }
+    },
+    "funding": [
+        {
+            "type": "github",
+            "url": "https://github.com/sponsors/restruct"
+        }
+    ]
+}

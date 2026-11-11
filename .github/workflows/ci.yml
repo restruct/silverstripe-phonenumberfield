@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+    # The repository's default branch.
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: SS${{ matrix.silverstripe }} / PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # One job per supported Silverstripe major, at the oldest and newest PHP that major is
+          # used with here. The module's composer.json is the source of truth for the supported
+          # range; this matrix must follow it.
+          - silverstripe: '4'
+            php: '8.1'
+            framework: '^4.13'
+            testing: '^2'
+          - silverstripe: '5'
+            php: '8.1'
+            framework: '^5'
+            testing: '^3'
+          - silverstripe: '5'
+            php: '8.3'
+            framework: '^5'
+            testing: '^3'
+
+    services:
+      database:
+        # MariaDB rather than MySQL: it matches both the local dev machines and the Forge
+        # servers, so a version-specific failure here means something real.
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: ss_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+
+    env:
+      SS_DATABASE_CLASS: MySQLDatabase
+      SS_DATABASE_SERVER: 127.0.0.1
+      SS_DATABASE_PORT: 3306
+      SS_DATABASE_USERNAME: root
+      SS_DATABASE_PASSWORD: root
+      SS_DATABASE_NAME: ss_ci
+      SS_ENVIRONMENT_TYPE: dev
+
+    steps:
+      - name: Check out the module
+        uses: actions/checkout@v7
+        with:
+          path: module
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, intl, pdo_mysql, mysqli, gd, zip, dom, xml, tokenizer, simplexml, ctype, hash, session
+          tools: composer:v2
+          coverage: none
+
+      - name: Build a host project
+        # The module cannot be tested on its own: it needs a booted Silverstripe app. The host
+        # requires only the framework (no CMS needed for form fields) plus recipe-testing.
+        #
+        # The module is required through a PATH repository pointing at the checkout, and
+        # symlinked rather than mirrored ON PURPOSE - `/tests` is `export-ignore` in
+        # .gitattributes, so a dist or mirrored install contains no tests at all.
+        run: |
+          mkdir -p app-host
+          cd app-host
+          cat > composer.json <<JSON
+          {
+            "name": "restruct/ci-host",
+            "require": {
+              "silverstripe/framework": "${{ matrix.framework }}",
+              "silverstripe/recipe-testing": "${{ matrix.testing }}",
+              "restruct/silverstripe-phonenumberfield": "*"
+            },
+            "repositories": [
+              { "type": "path", "url": "../module", "options": { "symlink": true } }
+            ],
+            "autoload-dev": {
+              "psr-4": {
+                "Restruct\\\\PhoneNumberField\\\\Tests\\\\": "vendor/restruct/silverstripe-phonenumberfield/tests/"
+              }
+            },
+            "minimum-stability": "dev",
+            "prefer-stable": true,
+            "config": { "allow-plugins": true }
+          }
+          JSON
+          # Silverstripe 4 is end of life and 5 is in security-fixes-only; Composer refuses to
+          # install either under the default advisory policy. Blocking is disabled HERE ONLY,
+          # in a throwaway CI host project.
+          composer config policy.advisories.block false
+          composer update --no-interaction --no-progress
+
+      - name: Configure the test suite
+        run: |
+          cd app-host
+          cat > phpunit.xml <<'XML'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!-- failOnWarning pinned so a warning behaves identically on every leg;
+               failOnEmptyTestSuite: a suite that silently finds no tests must fail, not pass. -->
+          <phpunit bootstrap="vendor/silverstripe/framework/tests/bootstrap.php" colors="true"
+                   failOnWarning="true" failOnEmptyTestSuite="true">
+              <testsuites>
+                  <testsuite name="phonenumberfield">
+                      <directory>vendor/restruct/silverstripe-phonenumberfield/tests</directory>
+                  </testsuite>
+              </testsuites>
+          </phpunit>
+          XML
+
+      - name: Run the tests
+        run: |
+          cd app-host
+          vendor/bin/phpunit --testdox flush=1
+
+  lint:
+    name: phpcs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2, phpcs
+          coverage: none
+      - run: phpcs --standard=phpcs.xml.dist

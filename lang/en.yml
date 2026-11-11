@@ -1,0 +1,6 @@
+en:
+  Restruct\PhoneNumberField\PhoneNumberField:
+    INVALID: 'Please enter a valid phone number'
+    REGION_NOT_ALLOWED: 'Phone numbers from this country are not accepted'
+    MOBILE_REQUIRED: 'Please enter a mobile phone number'
+    TYPE_NOT_ALLOWED: 'This type of phone number is not accepted'

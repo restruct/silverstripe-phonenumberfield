@@ -1,0 +1,11 @@
+---
+Name: restruct-phonenumberfield
+---
+# Defaults live as config statics on PhoneNumberRules; a project overrides them in its own
+# YAML. This block exists so the module's config layer is named and can be ordered against.
+Restruct\PhoneNumberField\PhoneNumberRules:
+  default_region: 'NL'
+  allowed_regions: []
+  allowed_types:
+    - 'MOBILE'
+    - 'FIXED_LINE_OR_MOBILE'
