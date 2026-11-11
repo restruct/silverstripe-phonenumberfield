@@ -22,6 +22,11 @@ use SilverStripe\Core\Injector\Injectable;
  * PhoneNumberField and PhoneNumberValidator pass their own overrides per instance; anything
  * they leave null falls back to these. The check itself is a static so it can run anywhere,
  * for instance in a queued job right before an SMS goes out.
+ *
+ * Number types are handled in whatever form the installed libphonenumber uses: int constants
+ * on 8.x, cases of the backed enum PhoneNumberType on 9.x. Both are written the same way
+ * (PhoneNumberType::MOBILE), so code comparing a type with === works on either; what has to
+ * change between them (deduplicating, int values from YAML, the name of a type) is done here.
  */
 class PhoneNumberRules
 {
@@ -62,7 +67,7 @@ class PhoneNumberRules
      * @param string|null $defaultRegion Overrides config default_region when given.
      * @param array|null $allowedRegions Overrides config allowed_regions when given (empty array = any).
      * @param array|null $allowedTypes Overrides config allowed_types when given (empty array = any);
-     *        entries are PhoneNumberType constant names or their int values.
+     *        entries are PhoneNumberType names, their int values, or (libphonenumber 9.x) enum cases.
      */
     public static function check(
         $raw,
@@ -129,11 +134,22 @@ class PhoneNumberRules
         }
         $mobileLike = [PhoneNumberType::MOBILE, PhoneNumberType::FIXED_LINE_OR_MOBILE];
 
-        return !count(array_diff($types, $mobileLike));
+        # A loop with strict in_array() rather than array_diff(): array_diff() compares as
+        # strings, and libphonenumber 9.x enum cases cannot be cast to string.
+        // return !count(array_diff($types, $mobileLike));
+        foreach ($types as $type) {
+            if (!in_array($type, $mobileLike, true)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
-     * Accept constant names ('MOBILE') as well as their values (1) and return int values.
+     * Accept constant names ('MOBILE') as well as their values (1) and return types in the form
+     * the installed libphonenumber uses: int values on 8.x, PhoneNumberType enum cases on 9.x
+     * (where an enum case is also accepted as input).
      * Unknown names are dropped rather than fatal, so a typo in YAML loosens the rule instead
      * of taking the form down; the test suite pins the valid names.
      */
@@ -141,26 +157,73 @@ class PhoneNumberRules
     {
         $out = [];
         foreach ($types as $type) {
-            if (is_int($type)) {
+            if ($type instanceof \UnitEnum) {
+                # libphonenumber 9.x: already a PhoneNumberType case.
                 $out[] = $type;
                 continue;
             }
+            if (is_int($type)) {
+                $type = static::typeFromValue($type);
+                if ($type !== null) {
+                    $out[] = $type;
+                }
+                continue;
+            }
+            # constant() returns the int on 8.x and the enum case on 9.x: enum cases are class
+            # constants as far as defined() and constant() are concerned.
             $const = PhoneNumberType::class . '::' . strtoupper(trim((string) $type));
             if (defined($const)) {
                 $out[] = constant($const);
             }
         }
 
-        return array_values(array_unique($out));
+        # Strict deduplication rather than array_unique(), which compares as strings and
+        # cannot cast a libphonenumber 9.x enum case.
+        // return array_values(array_unique($out));
+        $unique = [];
+        foreach ($out as $type) {
+            if (!in_array($type, $unique, true)) {
+                $unique[] = $type;
+            }
+        }
+
+        return $unique;
     }
 
     /**
-     * Name of a PhoneNumberType constant for its value, or null.
+     * The installed libphonenumber's form of a type given as its int value: the int itself on
+     * 8.x, the PhoneNumberType case on 9.x. Null for a value that is not a type (9.x only;
+     * 8.x has no way to tell, and the int then simply never matches).
+     *
+     * @return int|PhoneNumberType|null
      */
-    public static function typeName(?int $type): ?string
+    public static function typeFromValue(int $value)
     {
+        if (enum_exists(PhoneNumberType::class)) {
+            # Called by name: on 8.x PhoneNumberType is a plain class without tryFrom(), and this
+            # line is never reached there.
+            return call_user_func([PhoneNumberType::class, 'tryFrom'], $value);
+        }
+
+        return $value;
+    }
+
+    /**
+     * Name of a PhoneNumberType constant for its value (or, on 9.x, its enum case), or null.
+     *
+     * @param int|PhoneNumberType|null $type
+     */
+    public static function typeName($type): ?string
+    {
+        if (is_int($type)) {
+            $type = static::typeFromValue($type);
+        }
         if ($type === null) {
             return null;
+        }
+        if ($type instanceof \UnitEnum) {
+            # libphonenumber 9.x.
+            return $type->name;
         }
         foreach ((new \ReflectionClass(PhoneNumberType::class))->getConstants() as $name => $value) {
             if ($value === $type) {
