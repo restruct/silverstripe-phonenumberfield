@@ -28,6 +28,9 @@ use SilverStripe\Forms\Validation\Validator;
  * SilverStripe\Forms\Validator), so its presence is the version switch. The `use` imports above
  * are inert on SS4/SS5: an import never autoloads.
  */
+# One trait per major, declared twice on purpose (see above): PSR-1's one-per-file rule
+# cannot tell a conditional declaration from a second one.
+# phpcs:disable PSR1.Classes.ClassDeclaration.MultipleClasses
 if (class_exists(Validator::class)) {
     /**
      * Silverstripe 6: the field returns its own ValidationResult.
