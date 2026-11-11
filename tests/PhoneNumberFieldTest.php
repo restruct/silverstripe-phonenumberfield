@@ -146,7 +146,13 @@ class PhoneNumberFieldTest extends SapphireTest
         $field = PhoneNumberField::create('Mobile', 'Mobile', '+31612345678', 5);
         $result = $this->validate($this->makeForm($field));
         $this->assertFalse($result->isValid());
-        $this->assertStringContainsString('must not exceed', $result->getMessages()[0]['message']);
+        $this->assertSame('Mobile', $result->getMessages()[0]['fieldName']);
+        # The framework's own wording, which SS6 changed: SS4/SS5 TextField says "must not
+        # exceed", SS6's StringFieldValidator says "Cannot have more than".
+        $this->assertMatchesRegularExpression(
+            '/must not exceed|Cannot have more than/',
+            $result->getMessages()[0]['message']
+        );
     }
 
     public function testSaveIntoWritesTheNormalisedValue(): void
