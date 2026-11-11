@@ -117,4 +117,20 @@ class PhoneNumberValidatorTest extends SapphireTest
         $form->setValidator($form->getValidator()->addValidator(PhoneNumberValidator::create(['Mobile'])));
         $this->assertFalse(FormCompat::run($form)->isValid(), 'after: the landline is refused');
     }
+
+    /**
+     * Canary for the framework behaviour the README works around: addValidator() on a
+     * CompositeValidator that is already on a form does not hand the form to the added validator,
+     * so validating without the extra setValidator() fails (SS4/SS5: getData() on null; SS6:
+     * the typed $form property is read before initialisation). Measured on 4.13, 5.4 and 6.3.
+     * When this goes red, the framework has fixed it and the README workaround can be relaxed.
+     */
+    public function testAddValidatorAloneDoesNotHandTheFormOn(): void
+    {
+        $form = $this->makeForm(['Mobile' => '0201234567'], FormCompat::composite([FormCompat::required('Mobile')]));
+        $form->getValidator()->addValidator(PhoneNumberValidator::create(['Mobile']));
+
+        $this->expectException(\Error::class);
+        FormCompat::run($form);
+    }
 }

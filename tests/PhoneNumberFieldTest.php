@@ -164,4 +164,60 @@ class PhoneNumberFieldTest extends SapphireTest
         $field->saveInto($sink);
         $this->assertSame('+31612345678', $sink->Mobile);
     }
+
+    /**
+     * Silverstripe 6: validate() takes no Validator and returns the field's own result, which
+     * Form::validate() combines. Called directly here so the SS6 entry point is pinned on its
+     * own, not only through a form.
+     */
+    public function testValidateReturnsAResultWithTheFieldErrorOnSs6(): void
+    {
+        if (!class_exists('SilverStripe\\Forms\\Validation\\Validator')) {
+            $this->markTestSkipped('Silverstripe 4/5: validate() reports to a Validator');
+        }
+        $field = PhoneNumberField::create('Mobile', 'Mobile')->setValue('020 123 4567');
+        $result = $field->validate();
+
+        $this->assertInstanceOf('SilverStripe\\Core\\Validation\\ValidationResult', $result);
+        $this->assertFalse($result->isValid());
+        $this->assertSame('Mobile', $result->getMessages()[0]['fieldName']);
+        $this->assertSame('Please enter a mobile phone number', $result->getMessages()[0]['message']);
+
+        $this->assertTrue(PhoneNumberField::create('Mobile', 'Mobile')->setValue('0612345678')->validate()->isValid());
+        $this->assertTrue(PhoneNumberField::create('Mobile', 'Mobile')->setValue('')->validate()->isValid());
+    }
+
+    /**
+     * Silverstripe 4.13 and 5: validate($validator) reports on the Validator and returns a bool.
+     */
+    public function testValidateReportsToTheValidatorOnSs4AndSs5(): void
+    {
+        if (class_exists('SilverStripe\\Forms\\Validation\\Validator')) {
+            $this->markTestSkipped('Silverstripe 6: validate() returns a ValidationResult');
+        }
+        $validator = FormCompat::required();
+        $field = PhoneNumberField::create('Mobile', 'Mobile')->setValue('020 123 4567');
+
+        $this->assertFalse($field->validate($validator));
+        $messages = $validator->getResult()->getMessages();
+        $this->assertSame('Mobile', $messages[0]['fieldName']);
+        $this->assertSame('Please enter a mobile phone number', $messages[0]['message']);
+
+        $validator = FormCompat::required();
+        $this->assertTrue(PhoneNumberField::create('Mobile', 'Mobile')->setValue('0612345678')->validate($validator));
+        $this->assertTrue($validator->getResult()->isValid());
+    }
+
+    /**
+     * What the visitor sees is what they typed, on every major: SS6 renders the input from
+     * getFormattedValue(), SS4/SS5 from Value(); neither may show the E.164 form.
+     */
+    public function testRenderedInputShowsWhatWasTyped(): void
+    {
+        $field = PhoneNumberField::create('Mobile', 'Mobile')->setValue('06-12345678');
+        $this->makeForm($field);
+        $html = (string) $field->Field();
+        $this->assertStringContainsString('value="06-12345678"', $html);
+        $this->assertStringNotContainsString('+31612345678', $html);
+    }
 }
