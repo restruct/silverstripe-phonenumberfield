@@ -126,7 +126,9 @@ jobs:
       - name: Run the tests
         run: |
           cd app-host
-          vendor/bin/phpunit --testdox flush=1
+          # No flush=1: PHPUnit 9.6.38+ reads it as a file name ("Cannot open file"), and the
+          # host is freshly built so there is no manifest cache to flush anyway.
+          vendor/bin/phpunit --testdox
 
   lint:
     name: phpcs

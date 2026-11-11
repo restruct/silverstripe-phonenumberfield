@@ -168,7 +168,7 @@ From a host project that requires this module through a symlinked path repositor
 `export-ignore`, so a dist install has no tests):
 
 ```bash
-vendor/bin/phpunit vendor/restruct/silverstripe-phonenumberfield/tests flush=1
+vendor/bin/phpunit vendor/restruct/silverstripe-phonenumberfield/tests
 ```
 
 CI runs the suite on Silverstripe 4.13 (PHP 8.1) and 5 (PHP 8.1 and 8.3).
