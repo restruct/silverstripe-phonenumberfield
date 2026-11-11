@@ -3,14 +3,13 @@
 namespace Restruct\PhoneNumberField\Tests;
 
 use Restruct\PhoneNumberField\PhoneNumberRules;
+use Restruct\PhoneNumberField\Tests\Stub\FormCompat;
 use Restruct\PhoneNumberField\PhoneNumberValidator;
 use SilverStripe\Core\Config\Config;
 use SilverStripe\Dev\SapphireTest;
-use SilverStripe\Forms\CompositeValidator;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\Form;
 use SilverStripe\Forms\FormAction;
-use SilverStripe\Forms\RequiredFields;
 use SilverStripe\Forms\TextField;
 
 /**
@@ -44,7 +43,7 @@ class PhoneNumberValidatorTest extends SapphireTest
             ['Mobile' => '0612345678', 'Other' => 'not a number'],
             PhoneNumberValidator::create(['Mobile'])
         );
-        $this->assertTrue($form->validationResult()->isValid());
+        $this->assertTrue(FormCompat::run($form)->isValid());
     }
 
     public function testFailureNamesTheFieldAndUsesTheSharedMessage(): void
@@ -53,7 +52,7 @@ class PhoneNumberValidatorTest extends SapphireTest
             ['Mobile' => '0201234567', 'Phone' => '0612345678'],
             PhoneNumberValidator::create(['Mobile', 'Phone'])
         );
-        $result = $form->validationResult();
+        $result = FormCompat::run($form);
         $this->assertFalse($result->isValid());
         $messages = $result->getMessages();
         $this->assertCount(1, $messages);
@@ -64,7 +63,7 @@ class PhoneNumberValidatorTest extends SapphireTest
     public function testEmptyValuesPass(): void
     {
         $form = $this->makeForm(['Mobile' => ''], PhoneNumberValidator::create(['Mobile']));
-        $this->assertTrue($form->validationResult()->isValid());
+        $this->assertTrue(FormCompat::run($form)->isValid());
     }
 
     public function testOptionsOverrideConfig(): void
@@ -74,11 +73,11 @@ class PhoneNumberValidatorTest extends SapphireTest
             'default_region' => 'BE',
             'allowed_types' => ['MOBILE'],
         ]);
-        $this->assertFalse($this->makeForm(['Mobile' => '0612345678'], $validator)->validationResult()->isValid());
-        $this->assertTrue($this->makeForm(['Mobile' => '0470 12 34 56'], $validator)->validationResult()->isValid());
+        $this->assertFalse(FormCompat::run($this->makeForm(['Mobile' => '0612345678'], $validator))->isValid());
+        $this->assertTrue(FormCompat::run($this->makeForm(['Mobile' => '0470 12 34 56'], $validator))->isValid());
 
         $validator->setAllowedRegions(['NL'])->setDefaultRegion('NL');
-        $this->assertTrue($this->makeForm(['Mobile' => '0612345678'], $validator)->validationResult()->isValid());
+        $this->assertTrue(FormCompat::run($this->makeForm(['Mobile' => '0612345678'], $validator))->isValid());
     }
 
     public function testFieldsCanBeAddedAndRemoved(): void
@@ -93,29 +92,29 @@ class PhoneNumberValidatorTest extends SapphireTest
 
     public function testCombinesWithRequiredFieldsInACompositeValidator(): void
     {
-        $composite = CompositeValidator::create([
-            RequiredFields::create('Mobile'),
+        $composite = FormCompat::composite([
+            FormCompat::required('Mobile'),
             PhoneNumberValidator::create(['Mobile']),
         ]);
 
-        $result = $this->makeForm(['Mobile' => ''], $composite)->validationResult();
+        $result = FormCompat::run($this->makeForm(['Mobile' => ''], $composite));
         $this->assertFalse($result->isValid(), 'required catches empty');
 
-        $result = $this->makeForm(['Mobile' => '0201234567'], $composite)->validationResult();
+        $result = FormCompat::run($this->makeForm(['Mobile' => '0201234567'], $composite));
         $this->assertFalse($result->isValid(), 'phone rule catches the landline');
         $this->assertSame('Please enter a mobile phone number', $result->getMessages()[0]['message']);
 
-        $this->assertTrue($this->makeForm(['Mobile' => '0612345678'], $composite)->validationResult()->isValid());
+        $this->assertTrue(FormCompat::run($this->makeForm(['Mobile' => '0612345678'], $composite))->isValid());
     }
 
     public function testCanBeAddedToAnExistingCompositeValidator(): void
     {
-        $form = $this->makeForm(['Mobile' => '0201234567'], CompositeValidator::create([RequiredFields::create('Mobile')]));
-        $this->assertTrue($form->validationResult()->isValid(), 'before: nothing checks the number');
+        $form = $this->makeForm(['Mobile' => '0201234567'], FormCompat::composite([FormCompat::required('Mobile')]));
+        $this->assertTrue(FormCompat::run($form)->isValid(), 'before: nothing checks the number');
 
         # setValidator() again so the form is handed to the added validator: CompositeValidator's
         # addValidator() does not pass the form on by itself (framework behaviour, SS4 and SS5).
         $form->setValidator($form->getValidator()->addValidator(PhoneNumberValidator::create(['Mobile'])));
-        $this->assertFalse($form->validationResult()->isValid(), 'after: the landline is refused');
+        $this->assertFalse(FormCompat::run($form)->isValid(), 'after: the landline is refused');
     }
 }

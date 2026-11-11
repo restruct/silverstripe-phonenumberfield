@@ -5,12 +5,12 @@ namespace Restruct\PhoneNumberField\Tests;
 use Restruct\PhoneNumberField\PhoneNumberField;
 use Restruct\PhoneNumberField\PhoneNumberRules;
 use Restruct\PhoneNumberField\Tests\Stub\FieldSink;
+use Restruct\PhoneNumberField\Tests\Stub\FormCompat;
 use SilverStripe\Core\Config\Config;
 use SilverStripe\Dev\SapphireTest;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\Form;
 use SilverStripe\Forms\FormAction;
-use SilverStripe\Forms\RequiredFields;
 
 /**
  * The field inside a real Form: validation outcome, error message, and what saveInto() gets.
@@ -25,14 +25,14 @@ class PhoneNumberFieldTest extends SapphireTest
         Config::modify()->set(PhoneNumberRules::class, 'allowed_types', ['MOBILE', 'FIXED_LINE_OR_MOBILE']);
     }
 
-    protected function makeForm(PhoneNumberField $field, ?RequiredFields $required = null): Form
+    protected function makeForm(PhoneNumberField $field, $required = null): Form
     {
         $form = new Form(
             null,
             'TestForm',
             FieldList::create($field),
             FieldList::create(FormAction::create('submit', 'Submit')),
-            $required ?: RequiredFields::create()
+            $required ?: FormCompat::required()
         );
         $form->disableSecurityToken();
 
@@ -44,7 +44,7 @@ class PhoneNumberFieldTest extends SapphireTest
      */
     protected function validate(Form $form)
     {
-        return $form->validationResult();
+        return FormCompat::run($form);
     }
 
     public function testRendersAsTelInput(): void
@@ -61,7 +61,7 @@ class PhoneNumberFieldTest extends SapphireTest
         $result = $this->validate($this->makeForm($field));
 
         $this->assertTrue($result->isValid());
-        $this->assertSame('06-12345678', $field->Value(), 'the user keeps seeing what they typed');
+        $this->assertSame('06-12345678', FormCompat::value($field), 'the user keeps seeing what they typed');
         $this->assertSame('+31612345678', $field->dataValue(), 'the saved value is normalised');
     }
 
@@ -122,7 +122,7 @@ class PhoneNumberFieldTest extends SapphireTest
         $this->assertTrue($this->validate($this->makeForm($field))->isValid());
 
         $field = PhoneNumberField::create('Mobile', 'Mobile')->setValue('');
-        $result = $this->validate($this->makeForm($field, RequiredFields::create('Mobile')));
+        $result = $this->validate($this->makeForm($field, FormCompat::required('Mobile')));
         $this->assertFalse($result->isValid(), 'required-ness stays with RequiredFields');
         $this->assertSame('Mobile', $result->getMessages()[0]['fieldName']);
     }
