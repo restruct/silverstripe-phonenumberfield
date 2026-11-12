@@ -1,0 +1,10 @@
+# Static analysis, run by CI (job "phpstan") from a host project that has the module installed.
+# cambis/silverstan teaches PHPStan Silverstripe's magic (config, extensions, injector).
+parameters:
+  level: 5
+  paths:
+    - src
+  # The module guards against config values and field input that do not match their docblocks
+  # (a YAML value can be null, submitted data can be anything); trusting the docblocks would
+  # report every such guard as "always true".
+  treatPhpDocTypesAsCertain: false
